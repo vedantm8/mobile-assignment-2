@@ -32,7 +32,7 @@ import edu.stevens.cs522.base.IDatagramConnection;
 import edu.stevens.cs522.chatclient.R;
 import edu.stevens.cs522.chatclient.location.CurrentLocation;
 
-/*
+/**
  * @author dduggan
  * 
  */
@@ -82,16 +82,21 @@ public class ChatClientActivity extends ComponentActivity implements OnClickList
 			return insets;
 		});
 
-		/**
+		/*
 		 * Let's be clear, this is a HACK to allow you to do network communication on the chat_client thread.
 		 * This WILL cause an ANR, and is only provided to simplify the pedagogy.  We will see how to do
 		 * this right in a future assignment (using a Service managing background threads).
 		 */
-		StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build(); 
+		StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
 		StrictMode.setThreadPolicy(policy);
 
 		// TODO initialize the UI.
 
+		// Reference IDs from UI -- chat_client.xml
+		destinationAddr = findViewById(R.id.destination_addr);
+		chatName = findViewById(R.id.chat_name);
+		messageText = findViewById(R.id.message_text);
+		findViewById(R.id.send_button).setOnClickListener(this);
 
 		// End todo
 
@@ -137,8 +142,9 @@ public class ChatClientActivity extends ComponentActivity implements OnClickList
 			CurrentLocation location = CurrentLocation.getLocation(this);
 
 			// TODO get data from UI (no-op if chat name is blank)
-
-
+			destAddr = destinationAddr.getText().toString();
+			chatNameText = chatName.getText().toString();
+			text = messageText.getText().toString();
 			// End todo
 
 			if (destAddr.isEmpty()) {
