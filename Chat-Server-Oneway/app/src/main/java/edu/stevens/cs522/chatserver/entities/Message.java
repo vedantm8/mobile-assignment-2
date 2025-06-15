@@ -1,15 +1,19 @@
 package edu.stevens.cs522.chatserver.entities;
 
+import android.content.ContentValues;
+import android.database.Cursor;
 import android.os.Parcel;
 import android.os.Parcelable;
 
 import java.time.Instant;
 
+import edu.stevens.cs522.chatserver.contracts.MessageContract;
+
 /**
  * Created by dduggan.
  */
 
-public class Message implements Parcelable {
+public class Message implements Parcelable, Persistable {
 
     public long id;
 
@@ -28,16 +32,32 @@ public class Message implements Parcelable {
     public Message() {
     }
 
-    @Override
-    public String toString() {
-        return sender + ": " + messageText;
+    public Message(Cursor in) {
+        id = MessageContract.getId(in);
+        chatroom = MessageContract.getChatroom(in);
+        messageText = MessageContract.getMessageText(in);
+        timestamp = MessageContract.getTimestamp(in);
+        latitude = MessageContract.getLatitude(in);
+        longitude = MessageContract.getLongitude(in);
+        sender = MessageContract.getSender(in);
     }
 
+    @Override
+    public void writeToProvider(ContentValues out) {
+        MessageContract.putId(out, id);
+        MessageContract.putChatroom(out, chatroom);
+        MessageContract.putMessageText(out, messageText);
+        MessageContract.putTimestamp(out, timestamp);
+        MessageContract.putLatitude(out, latitude);
+        MessageContract.putLongitude(out, longitude);
+        MessageContract.putSender(out, sender);
+    }
 
     @Override
     public int describeContents() {
         return 0;
     }
+
 
     public Message(Parcel in) {
         id = in.readLong();
@@ -48,7 +68,6 @@ public class Message implements Parcelable {
         longitude = in.readDouble();
         sender = in.readString();
     }
-
     @Override
     public void writeToParcel(Parcel out, int flags) {
         out.writeLong(id);

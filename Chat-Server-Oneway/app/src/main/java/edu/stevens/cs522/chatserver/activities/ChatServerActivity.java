@@ -1,16 +1,17 @@
 /*********************************************************************
 
- Chat server: accept chat messagesAdapter from clients.
+ Chat server: accept chat messages from clients.
 
  Sender name and GPS coordinates are encoded
- in the messagesAdapter, and stripped off upon receipt.
+ in the messages, and stripped off upon receipt.
 
  Copyright (c) 2017 Stevens Institute of Technology
-
  **********************************************************************/
 package edu.stevens.cs522.chatserver.activities;
 
-import android.os.Build;
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.util.JsonReader;
@@ -19,28 +20,39 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.ListView;
+import android.widget.SimpleCursorAdapter;
 
-import androidx.activity.ComponentActivity;
-import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.FragmentActivity;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.Loader;
 
 import java.io.StringReader;
 import java.time.Instant;
-import java.util.ArrayList;
 
 import edu.stevens.cs522.base.Datagram;
 import edu.stevens.cs522.base.DatagramConnectionFactory;
 import edu.stevens.cs522.base.IDatagramConnection;
 import edu.stevens.cs522.chatserver.R;
+import edu.stevens.cs522.chatserver.contracts.PeerContract;
 import edu.stevens.cs522.chatserver.entities.Message;
 import edu.stevens.cs522.chatserver.entities.Peer;
 import edu.stevens.cs522.chatserver.entities.TimestampConverter;
 
-public class ChatServerActivity extends ComponentActivity implements OnClickListener {
+public class ChatServerActivity extends FragmentActivity implements OnClickListener, LoaderManager.LoaderCallbacks<Cursor> {
 
-    public final static String TAG = ChatServerActivity.class.getCanonicalName();
+    /*
+     * We extend FragmentActivity because we are using the Loader Jetpack libraries
+     * and loaders in turn rely on the activity to be a lifecycle owner.
+     * This will be become clearer when we talk about application architecture
+     * and the lifecycle-aware observer pattern.
+     */
+
+    final static public String TAG = ChatServerActivity.class.getCanonicalName();
 
     public final static String SENDER_NAME = "name";
 
@@ -55,27 +67,25 @@ public class ChatServerActivity extends ComponentActivity implements OnClickList
     public final static String LONGITUDE = "longitude";
 
     /*
-     * Network connection used both for sending and receiving
+     * Socket used both for sending and receiving
      */
-
     private IDatagramConnection serverConnection;
+//  private DatagramSocket serverSocket;
 
     /*
-     * True as long as we don't get network errors
+     * True as long as we don't get socket errors
      */
     private boolean socketOK = true;
 
-    private ArrayList<Peer> peers;
-
-    private ArrayList<Message> messages;
-
     /*
-     * TODO: Declare a listview for messages, and an adapter for displaying messages.
+     * UI for displayed received messages
      */
+    private ListView messageList;
 
-    /*
-     * End Todo
-     */
+    private SimpleCursorAdapter messagesAdapter;
+
+    static final private int LOADER_ID = 1;
+
 
     /*
      * Called when the activity is first created.
@@ -92,15 +102,19 @@ public class ChatServerActivity extends ComponentActivity implements OnClickList
             return insets;
         });
 
-        /**
-         * Let's be clear, this is a HACK to allow you to do network communication on the view_messages thread.
+        if (savedInstanceState == null) {
+            Log.i(TAG, "Creating chat server activity....");
+        } else {
+            Log.i(TAG, "Recreating chat server activity after low memory killer...");
+        }
+
+        /*
+         * Let's be clear, this is a HACK to allow you to do network communication on the messages thread.
          * This WILL cause an ANR, and is only provided to simplify the pedagogy.  We will see how to do
          * this right in a future assignment (using a Service managing background threads).
          */
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
-
-        this.getSharedPreferences(null, 0);
 
         try {
             /*
@@ -112,22 +126,25 @@ public class ChatServerActivity extends ComponentActivity implements OnClickList
             serverConnection = factory.getUdpConnection(port);
 
         } catch (Exception e) {
-            throw new IllegalStateException("Cannot open server connection", e);
+            throw new IllegalStateException("Cannot open socket", e);
         }
 
-        // List of peers
-        peers = new ArrayList<Peer>();
+        // TODO use SimpleCursorAdapter (with flags=0 and null initial cursor) to display the messages received.
+        /*
+         * Use R.layout.message as layout for each row.
+         *
+         * messagesAdapter = new SimpleCursorAdapter(..., 0);
+         */
 
-        // List of messages
-        messages = new ArrayList<Message>();
-
-        // TODO: Initialize the list view with the array adapter.
-        // Use android.R.layout.simple_list_item_1 for list item layout
 
         // TODO bind the button for "next" to this activity as listener
 
 
+        // Use loader manager to initiate a query of the database
+        // Make sure to use the Jetpack library, not the deprecated core implementation.
+        LoaderManager.getInstance(this).initLoader(LOADER_ID, null, this);
     }
+
 
     public void onClick(View v) {
 
@@ -148,23 +165,19 @@ public class ChatServerActivity extends ComponentActivity implements OnClickList
             Double longitude = null;
 
             /*
-             * THere is an apparent bug in the emulator TCP stack on Windows where
-             * messages can arrive empty.
-             *
-             * If using SMS, we cannot block on the main thread waiting for a
-             * message to arrive, because the broadcast receiver will never execute!
+             * THere is an apparent bug in the emulator stack on Windows where
+             * messages can arrive empty, we loop as a workaround.
              */
 
-            Log.d(TAG, "Receiving a packet....");
             serverConnection.receive(receivePacket);
+            Log.d(TAG, "Received a packet");
 
             if (receivePacket.getData() == null) {
                 Log.d(TAG, "....no data, skipping....");
                 return;
             }
 
-            String address = receivePacket.getAddress();
-            Log.d(TAG, "Source Address: " + address);
+            Log.d(TAG, "Source Address: " + receivePacket.getAddress());
 
             String content = receivePacket.getData();
             Log.d(TAG, "Message received: " + content);
@@ -205,28 +218,66 @@ public class ChatServerActivity extends ComponentActivity implements OnClickList
             peer.timestamp = timestamp;
             peer.latitude = latitude;
             peer.longitude = longitude;
-            addPeer(peer);
 
-            Message message = new Message();
+            final Message message = new Message();
             message.messageText = text;
             message.chatroom = room;
             message.sender = sender;
             message.timestamp = timestamp;
             message.latitude = latitude;
             message.longitude = longitude;
+
+            ContentResolver resolver = getContentResolver();
+
             /*
-             * TODO: Add message to the display.
+             * Upsert the peer into the content provider.
+             *
+             * For this assignment, OK to do synchronous CP insertion on the main thread.
+             * resolver.insert(...);
+             */
+            ContentValues peerData = new ContentValues();
+            peer.writeToProvider(peerData);
+            resolver.insert(PeerContract.CONTENT_URI, peerData);
+
+            /*
+             * TODO Insert the message into the content provider.
              */
 
             /*
-             * End Todo
+             * End TODO
              */
+
 
         } catch (Exception e) {
 
-            Log.e(TAG, "Problems receiving packet: ", e);
+            Log.e(TAG, "Problems receiving packet: " + e.getMessage(), e);
             socketOK = false;
         }
+
+    }
+
+    @NonNull
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        switch (id) {
+            case LOADER_ID:
+                // TODO use a CursorLoader to initiate a query on the database for messages
+                return null;
+
+            default:
+                throw new IllegalStateException(("Unexpected loader id: " + id));
+        }
+    }
+
+    @Override
+    public void onLoadFinished(@NonNull Loader<Cursor> loader, Cursor data) {
+        // TODO populate the UI with the result of querying the provider
+
+    }
+
+    @Override
+    public void onLoaderReset(@NonNull Loader<Cursor> loader) {
+        // TODO reset the UI when the cursor is empty
 
     }
 
@@ -247,29 +298,16 @@ public class ChatServerActivity extends ComponentActivity implements OnClickList
         return socketOK;
     }
 
-    @Override
     public void onDestroy() {
         super.onDestroy();
+        Log.i(TAG, "Destroying the chat server activity (low memory killer?)....");
         closeSocket();
-    }
-
-    private void addPeer(Peer peer) {
-        for (Peer p : peers) {
-            if (p.name.equals(peer.name)) {
-                p.timestamp = peer.timestamp;
-                p.latitude = peer.latitude;
-                p.longitude = peer.longitude;
-                return;
-            }
-        }
-        peers.add(peer);
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
         // TODO inflate a menu with PEERS option
-
 
         return true;
     }
@@ -280,12 +318,12 @@ public class ChatServerActivity extends ComponentActivity implements OnClickList
         int itemId = item.getItemId();
         if (itemId == R.id.peers) {
             // TODO PEERS provide the UI for viewing list of peers
-            // The list of peers must be passed as an argument to the subactivity..
+            // The subactivity will query the database for the list of peers.
 
             return true;
 
         }
         return false;
     }
-    
+
 }

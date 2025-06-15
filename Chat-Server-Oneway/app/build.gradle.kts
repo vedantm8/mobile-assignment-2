@@ -23,8 +23,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     // Hack to get around overlapping dependencies added by Kotlin libraries
@@ -35,11 +35,11 @@ android {
 
 dependencies {
 
-    implementation(libs.activity)
-
+    implementation(libs.androidx.loader)
+    implementation(libs.androidx.fragment)
     implementation(files("libs/cs522-library.aar"))
     implementation(libs.guava)
     testImplementation(libs.junit)
-    androidTestImplementation(libs.ext.junit)
-    androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 }

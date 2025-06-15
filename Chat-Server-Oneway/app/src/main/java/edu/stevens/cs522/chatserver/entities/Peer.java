@@ -1,5 +1,7 @@
 package edu.stevens.cs522.chatserver.entities;
 
+import android.content.ContentValues;
+import android.database.Cursor;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -9,7 +11,7 @@ import java.time.Instant;
  * Created by dduggan.
  */
 
-public class Peer implements Parcelable {
+public class Peer implements Parcelable, Persistable {
 
     // Will be database key
     public long id;
@@ -27,11 +29,17 @@ public class Peer implements Parcelable {
     public Peer() {
     }
 
-    @Override
-    public String toString() {
+    public Peer(Cursor in) {
         // TODO
-        return null;
+
     }
+
+    @Override
+    public void writeToProvider(ContentValues out) {
+        // TODO
+
+    }
+
 
     @Override
     public int describeContents() {
@@ -54,12 +62,14 @@ public class Peer implements Parcelable {
         @Override
         public Peer createFromParcel(Parcel source) {
             // TODO
+            // return null;
             return null;
         }
 
         @Override
         public Peer[] newArray(int size) {
             // TODO
+            // return null;
             return null;
         }
 

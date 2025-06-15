@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Vedant\'s Chat Server (Basic)</string>
+    <string name="app_name">Dominic\'s Chat Server (Provider)</string>
 
     <!-- Use this to reference the development machine from emulator -->
     <string name="localhost">10.0.2.2</string>
@@ -22,7 +22,8 @@
     <string name="show_peers">PEERS</string>
 
     <string name="title_peers">List of Peers</string>
-    <string name="title_peer_details">Chat Peer Details</string>
+    <string name="title_peer_details">Char Peer Details</string>
+    <string name="title_peer_messages">Messages</string>
 
     <string name="view_user_name">User Name: %1$s</string>
     <string name="view_timestamp">Last Seen: %1$s</string>

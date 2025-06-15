@@ -6,6 +6,7 @@
 
     <item
         android:id="@+id/peers"
-        android:title="@string/show_peers" />
+        android:title="@string/show_peers"
+        android:showAsAction="ifRoom" />
 
 </menu>

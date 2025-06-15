@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Chat-Server-Oneway"
 include(":app")
- 
+include(":cs522-library")
